@@ -145,7 +145,20 @@ like this:
             return on_my_cdn.get(uri, uri)
 
 
-	
+Custom converters
+-----------------
+
+CleverCSS can be integrated with django-static by adding the following in your
+settings.py file:
+
+	import clevercss
+        DJANGO_STATIC_CONVERSIONS = {'.ccss': (clevercss, '.css')}
+
+All `.ccss` files will be run through `clevercss.convert()` and the resulting
+file extension will be changed to `.css`. Note that this currently works only
+with `DJANGO_STATIC = True`.
+
+
 Using Google Closure Compiler
 -----------------------------
 

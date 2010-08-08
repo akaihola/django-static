@@ -329,6 +329,53 @@ _FILE_MAP = {}
 
 referred_css_images_regex = re.compile('url\(([^\)]+)\)')
 
+
+def get_conversion(extension):
+    """Returns the conversion settings for the given file extension
+
+    The file extension must include the period. The return value is a two-tuple
+    (<conversion function>, <result file extension>). Conversions are looked up
+    from ``settings.DJANGO_STATIC_CONVERSIONS``. A ``KeyError`` is raised if no
+    matching conversion is found.
+
+    The conversion function must take one string argument and return the
+    converted string.
+    """
+    conversions = getattr(settings, 'DJANGO_STATIC_CONVERSIONS', {})
+    return conversions[extension]
+
+
+def convert_file(filepath):
+    """Convert file content if file type matches a conversion
+
+    The return value is a two-tuple
+    (<converted file content>, <result file extension>).
+
+    If no conversion in ``settings.DJANGO_STATIC_CONVERSIONS`` matches the
+    extension of ``filepath``, the original contents of the file is returned.
+    """
+    content = open(filepath, 'r').read()
+    path, extension = os.path.splitext(filepath)
+    try:
+        converter, converted_extension = get_conversion(extension)
+        return converter(content), '%s%s' % (path, converted_extension)
+    except KeyError:
+        return content, filepath
+
+
+def convert_extension(extension):
+    """Convert file extension if file type matches a conversion
+
+    Returns the extension for the converted file type, if a conversion in
+    ``settings.DJANGO_STATIC_CONVERSIONS`` matches the given
+    extension. Otherwise returns the original extension.
+    """
+    try:
+        return get_conversion(extension)[1]
+    except KeyError:
+        return extension
+
+
 def _static_file(filename,
                  optimize_if_possible=False,
                  symlink_if_possible=False,
@@ -400,15 +447,18 @@ def _static_file(filename,
                 filepath = _filename2filepath(each, settings.MEDIA_ROOT)
                 if not os.path.isfile(filepath):
                     raise OSError(filepath)
-                
+
+                content, converted_filepath = convert_file(filepath)
+                filenames.append(converted_filepath)
+                converted_extension = os.path.splitext(converted_filepath)[-1]
                 if extension:
-                    if os.path.splitext(filepath)[1] != extension:
+                    if converted_extension != extension:
                         raise ValueError("Mismatching file extension in combo %r" % \
                           each)
                 else:
-                    extension = os.path.splitext(filepath)[1]
+                    extension = converted_extension
                 each_m_times.append(os.stat(filepath)[stat.ST_MTIME])
-                new_file_content.write(open(filepath, 'r').read().strip())
+                new_file_content.write(content.strip())
                 new_file_content.write('\n')
             
             filename = _combine_filenames(filename)
@@ -421,8 +471,9 @@ def _static_file(filename,
                     warnings.warn("Can't find file %s" % filepath)
                 return file_proxy(wrap_up(filename), 
                                   **dict(fp_default_kwargs, filepath=filepath, notfound=True))
-            
+
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
+            content, filepath = convert_file(filepath)
             
         if m_time:
             # we had the filename in the map
@@ -438,7 +489,7 @@ def _static_file(filename,
             apart = os.path.splitext(filename)
             new_filename = ''.join([apart[0], 
                                 '.%s' % new_m_time,
-                                apart[1]])
+                                convert_extension(apart[1])])
             
             fileinfo = (DJANGO_STATIC_NAME_PREFIX + new_filename, new_m_time)
                 
@@ -466,8 +517,6 @@ def _static_file(filename,
         # definitely need to write a new file.
         if is_combined_files:
             content = new_file_content.getvalue()
-        else:
-            content = open(filepath).read()
         if new_filename.endswith('.js') and has_optimizer(JS):
             content = optimize(content, JS)
         elif new_filename.endswith('.css') and has_optimizer(CSS):
