@@ -11,9 +11,15 @@ ADMINS = (
 
 MANAGERS = ADMINS
 
-
-DATABASE_ENGINE = 'sqlite3'
-DATABASE_NAME = TEST_DATABASE_NAME = ':memory:'
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+}
+# good bye Django 1.1!
+#DATABASE_ENGINE = 'sqlite3'
+#DATABASE_NAME = TEST_DATABASE_NAME = ':memory:'
 
 CACHE_BACKEND = 'locmem:///'
 
@@ -88,5 +94,5 @@ INSTALLED_APPS = (
 DJANGO_STATIC = True
 
 #DJANGO_STATIC_CLOSURE_COMPILER = '/home/peterbe/tmp/compiler-latest/compiler.jar'
-
 #DJANGO_STATIC_YUI_COMPRESSOR = '/home/peterbe/tmp/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar'
+#DJANGO_STATIC_JSMIN = True
